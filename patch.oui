@@ -45,22 +45,88 @@ index 1fc8faa6e973..740a1c945f12 100644
  /*
   * 32 bit systems traditionally used different
 diff --git a/kernel/sys.c b/kernel/sys.c
-index a611d1d58c7d..e1d4052e8b69 100644
+index a611d1d58c7d..dabd3027ec4c 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
-@@ -2649,3 +2649,15 @@ COMPAT_SYSCALL_DEFINE1(sysinfo, struct compat_sysinfo __user *, info)
+@@ -2649,3 +2649,80 @@ COMPAT_SYSCALL_DEFINE1(sysinfo, struct compat_sysinfo __user *, info)
  	return 0;
  }
  #endif /* CONFIG_COMPAT */
 +
++struct page *walk_page_table(unsigned long addr)
++{
++	pgd_t *pgd;
++    pte_t *ptep, pte;
++    pud_t *pud;
++    pmd_t *pmd;
++
++    struct page *page = NULL;
++    struct mm_struct *mm = current->mm;
++
++    pgd = pgd_offset(mm, addr);
++    if (pgd_none(*pgd) || pgd_bad(*pgd))
++        goto out;
++    printk(KERN_NOTICE "Valid pgd");
++
++    pud = pud_offset(pgd, addr);
++    if (pud_none(*pud) || pud_bad(*pud))
++        goto out;
++    printk(KERN_NOTICE "Valid pud");
++
++    pmd = pmd_offset(pud, addr);
++    if (pmd_none(*pmd) || pmd_bad(*pmd))
++        goto out;
++    printk(KERN_NOTICE "Valid pmd");
++
++    ptep = pte_offset_map(pmd, addr);
++    if (!ptep)
++        goto out;
++    pte = *ptep;
++
++    page = pte_page(pte);
++    if (page)
++        printk(KERN_INFO "page frame struct is @ %p", page);
++
++	pte_unmap(ptep); 
++	
++ out:
++    return page;
++}
++
 +SYSCALL_DEFINE1(expose_pte, struct expose_pte_args __user *, args)
 +{	
 +	int ret; 
++	struct task_struct *task_str;
++	struct mm_struct *mm;
++	struct page page; 
++	unsigned long start_fpt, end_fpt, start_pte, end_pte, start_vaddr, end_vaddr; 
++	unsigned long vaddr_cnt;
++
++	start_fpt = args->begin_fpt_vaddr;
++	end_fpt = args->end_fpt_vaddr;
++	start_pte = args->begin_pte_vaddr;
++	end_pte = args->end_pte_vaddr;
++	start_vaddr = args->begin_vaddr;
++	end_vaddr = args->end_vaddr;
++
 +	ret = syscall(129, args->pid, 0);
++	start_fpt = args -> begin_fpt_addr;
++
 +	if (ret != 0)
 +	{
-+		fprintf(stderr,  "\nerror: %s", strerror(errno));
++		fprintf(stderr,  "\nThe task doesn't exist \nerror: %s", strerror(errno));
 +        exit(errno);
 +	}
++
++	task_str = get_pid_task(args->pid, PIDTYPE_PID); 
++	mm = task_str-> mm;
++
++	for(vaddr_cnt = begin_vaddr; vaddr_cnt <= end_vaddr; vaddr_cnt ++)
++	{
++		page = walk_page_table(addr);
++	}
++
++
 +	return 0;
 +}
+\ No newline at end of file
