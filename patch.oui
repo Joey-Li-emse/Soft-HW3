@@ -1,0 +1,66 @@
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index f7c561c4dcdd..6908c6361692 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -84,6 +84,23 @@ struct clone_args;
+ #include <linux/personality.h>
+ #include <trace/syscall.h>
+ 
++struct expose_pte_args {
++//PID of the target task to expose pte (can be the caller task or others)
++pid_t pid;
++//begin userspace VA of the flattened page table
++unsigned long begin_fpt_vaddr;
++//end userspace VA of the flattened page table
++unsigned long end_fpt_vaddr;
++//begin userspace VA of the remapped PTE table
++unsigned long begin_pte_vaddr;
++//end userspace VA of the remapped PTE table
++unsigned long end_pte_vaddr;
++//begin of userspace VA to expose PTE mappings
++unsigned long begin_vaddr;
++//end of userspace VA to expose PTE mappings
++unsigned long end_vaddr;
++};
++
+ #ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
+ /*
+  * It may be useful for an architecture to override the definitions of the
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index 1fc8faa6e973..740a1c945f12 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -850,9 +850,12 @@ __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
+ #define __NR_clone3 435
+ __SYSCALL(__NR_clone3, sys_clone3)
+ #endif
++#define __NR_expose_pte 436
++__SYSCALL(__NR_expose_pte, sys_expose_pte)
++
+ 
+ #undef __NR_syscalls
+-#define __NR_syscalls 436
++#define __NR_syscalls 437
+ 
+ /*
+  * 32 bit systems traditionally used different
+diff --git a/kernel/sys.c b/kernel/sys.c
+index a611d1d58c7d..e1d4052e8b69 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -2649,3 +2649,15 @@ COMPAT_SYSCALL_DEFINE1(sysinfo, struct compat_sysinfo __user *, info)
+ 	return 0;
+ }
+ #endif /* CONFIG_COMPAT */
++
++SYSCALL_DEFINE1(expose_pte, struct expose_pte_args __user *, args)
++{	
++	int ret; 
++	ret = syscall(129, args->pid, 0);
++	if (ret != 0)
++	{
++		fprintf(stderr,  "\nerror: %s", strerror(errno));
++        exit(errno);
++	}
++	return 0;
++}
